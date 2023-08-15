@@ -193,3 +193,36 @@ class _BinaryPlist17Parser:
         else:
             size = tokenL
         return size
+class _BinaryPlist17Writer:
+    def __init__(self, fp, sort_keys, skipkeys):
+        self._fp = fp
+        self._sort_keys = sort_keys
+        self._skipkeys = skipkeys
+    
+    def write(self, value):
+        plist_bytes = 'bplist17'.encode()
+        current_position = len(plist_bytes)
+        self._pack(value=value, position=current_position)
+
+        self._fp.write(plist_bytes)
+
+    def _pack(self, value, position):
+        value_bytes : bytes = None
+        if isinstance(value, dict):
+            # TODO process dict
+            print('process dict')
+            endposition = position +  size
+            header_bytes = b'\xD0' + endposition.to_bytes(length=8, byteorder='little')
+
+        elif isinstance(value, (list, tuple)):
+            # TODO process array
+            print('process array')
+            size = 1 # TODO get size of packed array contents
+            endposition = position +  size
+            header_bytes = b'\xA0' + endposition.to_bytes(length=8, byteorder='little')
+        
+        else:
+            # TODO process scalars
+            print('process scalars')
+
+        return value_bytes
