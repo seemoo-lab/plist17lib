@@ -5,9 +5,11 @@ from plistlib import InvalidFileException, _undefined, PlistFormat
 from plistlib import load as plistlibLoad
 import struct
 from io import BytesIO
+import math
 
 __all__ = [
-    "_BinaryPlist17Parser"
+    "_BinaryPlist17Parser",
+    "_BinaryPlist17Writer"
 ]
 
 class _BinaryPlist17Parser:
@@ -194,17 +196,18 @@ class _BinaryPlist17Parser:
             size = tokenL
         return size
 class _BinaryPlist17Writer:
-    def __init__(self, fp, sort_keys, skipkeys):
+    def __init__(self, fp):#, sort_keys, skipkeys):
         self._fp = fp
-        self._sort_keys = sort_keys
-        self._skipkeys = skipkeys
+        # self._sort_keys = sort_keys
+        # self._skipkeys = skipkeys
     
     def write(self, value):
         plist_bytes = 'bplist17'.encode()
         current_position = len(plist_bytes)
-        self._pack(value=value, position=current_position)
+        value_bytes = self._pack(value=value, position=current_position)
 
-        self._fp.write(plist_bytes)
+        self._fp.write(plist_bytes + value_bytes)
+        return self._fp
 
     def _pack(self, value, position):
         value_bytes : bytes = None
@@ -217,12 +220,33 @@ class _BinaryPlist17Writer:
         elif isinstance(value, (list, tuple)):
             # TODO process array
             print('process array')
-            size = 1 # TODO get size of packed array contents
-            endposition = position +  size
+            element_bytes = bytes()
+            curr_position = position + 8
+            for element in value:
+                element_bytes = element_bytes + self._pack(element, position=curr_position+len(element_bytes))
+            
+            size = len(element_bytes) # TODO get size of packed array contents
+            endposition = curr_position +  size
             header_bytes = b'\xA0' + endposition.to_bytes(length=8, byteorder='little')
+
+            return header_bytes + element_bytes
         
-        else:
-            # TODO process scalars
-            print('process scalars')
+        elif isinstance(value, int):
+            # TODO signed or unsigned depending on parsing/specification TBD
+            buff_size = math.ceil(math.log(value + 1, 2) / 8)
+            value_bytes = self._calc_datatype_prefix(datatype=0x10, size=buff_size) + value.to_bytes(buff_size, byteorder='little')
+            print(value_bytes)
+        elif isinstance(value, float):
+            # TODO float or double depending on parsing/specification TBD
+            value_bytes = b'\x22' + struct.pack('<f', value)
+            # value_bytes = b'\x23' + struct.pack('<d', value)
+        elif isinstance(value, str):
+            print('process string')
 
         return value_bytes
+    
+    def _calc_datatype_prefix(self, datatype, size):
+        if size < 0xF:
+            return (datatype | size).to_bytes(length=1, byteorder='little')
+        else:
+            return (datatype | 0x0F).to_bytes(length=1, byteorder='little') + self._pack(size)
