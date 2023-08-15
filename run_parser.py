@@ -17,10 +17,11 @@ def parse_file(plist_file_path, json_out_path):
              f.write(jsonString)
              f.close()
         else:
-            print("-------------------------------------")
+            print("================================================================================")
             print("Parsing: ", plist_file_path)
+            print("--------------------------------------------------------------------------------")
             print(jsonString)
-            print("-------------------------------------\n\n")
+            print("================================================================================\n\n")
 
 def printHelp(isError=False):
     if isError:
@@ -42,10 +43,10 @@ def main(argv):
             sys.exit(0)
         elif opt in ("-i", "--input"):
             inputpath = arg
-            print('Input is:  ', inputpath)
+            # print('Input is:  ', inputpath)
         elif opt in ("-o", "--output"):
             outputpath = arg
-            print('Output is: ', outputpath)
+            # print('Output is: ', outputpath)
 
     if not inputpath: 
         print('No input specified.')
@@ -53,7 +54,12 @@ def main(argv):
         sys.exit(1)
 
     if os.path.isfile(inputpath):
-        parse_file(inputpath, outputpath)
+        if outputpath and (not os.path.basename(outputpath) or os.path.isdir(outputpath)):
+            print('The specified input is not a directory, so the output path must also not be a directory.')
+            printHelp(isError=True)
+            sys.exit(1)
+        else:
+            parse_file(inputpath, outputpath)
     else:
         if outputpath: # if an output path was specified, check it
             if os.path.isfile(outputpath):
@@ -73,9 +79,11 @@ def main(argv):
                     out_filepath = os.path.join(outputpath, file[:-8] + 'json')
                 else:
                     out_filepath = ''
-                print('Input file path is:  ', in_filepath)
-                print('Output file path is: ', out_filepath)
+                # print('Input file path is:  ', in_filepath)
+                # print('Output file path is: ', out_filepath)
                 parse_file(in_filepath, out_filepath)
+
+    print('Done.')
 
 
 if __name__ == "__main__":
