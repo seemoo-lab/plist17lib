@@ -210,7 +210,6 @@ class _BinaryPlist17Writer:
         return self._fp
     
     def _pack_dict(self, value, position):
-        # TODO process dict
         element_bytes = bytes()
         curr_position = position + 8
         for key, val in value.items():
