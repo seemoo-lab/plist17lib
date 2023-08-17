@@ -262,7 +262,7 @@ class _BinaryPlist17Writer:
         return b'\xE0'
 
     def _pack_str_utf8(self, value):
-        str_bytes = value.encode(encoding='utf-8')
+        str_bytes = value.encode(encoding='utf-8') + b'\x00'
         return self._calc_datatype_prefix(datatype=0x70, size=len(str_bytes)) + str_bytes
     
     def _pack_str_utf16le(self, value):
