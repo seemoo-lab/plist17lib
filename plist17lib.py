@@ -85,7 +85,7 @@ class _BinaryPlist17Parser:
 
         if tokenH == 0x10:  # int
             # Integer (length tokenL)
-            result = int.from_bytes(self._fp.read(tokenL), 'big')
+            result = int.from_bytes(self._fp.read(tokenL), 'little', signed=True)
 
         elif token == 0x22: # real
             result = struct.unpack('<f', self._fp.read(4))[0]
