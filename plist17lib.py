@@ -217,11 +217,9 @@ class _BinaryPlist17Parser:
             size = tokenL
         return size
 class _BinaryPlist17Writer:
-    def __init__(self, fp):#, sort_keys, skipkeys):
+    def __init__(self, fp):
         self._fp = fp
         self.known_objects = {}
-        # self._sort_keys = sort_keys
-        # self._skipkeys = skipkeys
     
     def write(self, value, with_type_info=False):
         plist_bytes = 'bplist17'.encode()
@@ -329,7 +327,6 @@ class _BinaryPlist17Writer:
             return self._pack_bool(value=value)
 
         elif isinstance(value, int):
-            # TODO signed or unsigned depending on parsing/specification TBD
             return self._pack_int(value=value)
 
         elif isinstance(value, float):
@@ -340,7 +337,6 @@ class _BinaryPlist17Writer:
         elif isinstance(value, str):
             # TODO utf-8 or utf-16le depending on parsing/specification TBD
             return self._pack_str_utf8(value=value)
-            # return self._pack_str_utf16le(value=value)
         
         elif isinstance(value, (bytes, bytearray)):
             return self._pack_data(value=value)
@@ -388,8 +384,8 @@ class _BinaryPlist17Writer:
         else:
             raise TypeError('unsupported value type %s' % types[0])
     
-    def _calc_datatype_prefix(self, datatype, size):
+    def _calc_datatype_prefix(self, datatype, size, position):
         if size < 0xF:
             return (datatype | size).to_bytes(length=1, byteorder='little')
         else:
-            return (datatype | 0x0F).to_bytes(length=1, byteorder='little') + self._pack(size)
+            return (datatype | 0x0F).to_bytes(length=1, byteorder='little') + self._pack(size, position=0, with_type_info=False)
