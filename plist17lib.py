@@ -5,9 +5,11 @@ from plistlib import InvalidFileException, _undefined, PlistFormat
 from plistlib import load as plistlibLoad
 import struct
 from io import BytesIO
+import math
 
 __all__ = [
-    "_BinaryPlist17Parser"
+    "_BinaryPlist17Parser",
+    "_BinaryPlist17Writer"
 ]
 
 class _BinaryPlist17Parser:
@@ -84,7 +86,7 @@ class _BinaryPlist17Parser:
         if tokenH == 0x10:  # int
             # Integer (length tokenL)
             result_type = 'int'
-            result_value = int.from_bytes(self._fp.read(tokenL), 'big')
+            result_value = int.from_bytes(self._fp.read(tokenL), 'little', signed=True)
 
         elif token == 0x22: # real
             result_type = 'float'
@@ -214,3 +216,180 @@ class _BinaryPlist17Parser:
         else:
             size = tokenL
         return size
+class _BinaryPlist17Writer:
+    def __init__(self, fp):#, sort_keys, skipkeys):
+        self._fp = fp
+        self.known_objects = {}
+        # self._sort_keys = sort_keys
+        # self._skipkeys = skipkeys
+    
+    def write(self, value, with_type_info=False):
+        plist_bytes = 'bplist17'.encode()
+        current_position = len(plist_bytes)
+        value_bytes = self._pack(value=value, position=current_position, with_type_info=with_type_info)
+
+        self._fp.write(plist_bytes + value_bytes)
+        return self._fp
+    
+    def _pack_dict(self, value, position, with_type_info):
+        element_bytes = bytes()
+        curr_position = position + 8
+        for key, val in value.items():
+            element_bytes = element_bytes + self._pack(key, position=curr_position+len(element_bytes), with_type_info=False)
+            element_bytes = element_bytes + self._pack(val, position=curr_position+len(element_bytes), with_type_info=with_type_info)
+        
+        size = len(element_bytes)
+        endposition = curr_position +  size
+        header_bytes = b'\xD0' + endposition.to_bytes(length=8, byteorder='little')
+        return header_bytes + element_bytes
+
+    def _pack_array(self, value, position, with_type_info):
+        element_bytes = bytes()
+        curr_position = position + 8
+        for element in value:
+            element_bytes = element_bytes + self._pack(element, position=curr_position+len(element_bytes), with_type_info=with_type_info)
+        
+        size = len(element_bytes)
+        endposition = curr_position +  size
+        header_bytes = b'\xA0' + endposition.to_bytes(length=8, byteorder='little')
+
+        return header_bytes + element_bytes
+    
+    def _pack_int(self, value):
+
+        if value < 0:
+            if value < -2**63:
+                raise ValueError("value: %i out of range of int64" % value)
+            else:
+                buff_size = 8
+        else:
+            buff_size = math.ceil((math.log(value + 1, 2) + 1) / 8)
+
+        value_bytes = self._calc_datatype_prefix(datatype=0x10, size=buff_size) + value.to_bytes(buff_size, byteorder='little', signed=True)
+        return value_bytes
+
+    def _pack_uint(self, value):
+        buff_size = max(1, math.ceil((math.log(value + 1, 2)) / 8))
+
+        value_bytes = self._calc_datatype_prefix(datatype=0xF0, size=buff_size) + value.to_bytes(buff_size, byteorder='little', signed=False)
+        return value_bytes
+
+    def _pack_float(self, value):
+        return b'\x22' + struct.pack('<f', value)
+    
+    def _pack_double(self, value):
+        return b'\x23' + struct.pack('<d', value)
+    
+    def _pack_bool(self, value):
+        if value:
+            return b'\xB0'
+        else:
+            return b'\xC0'
+        
+    def _pack_null(self):
+        return b'\xE0'
+
+    def _pack_str_utf8(self, value):
+        str_bytes = value.encode(encoding='utf-8') + b'\x00'
+        return self._calc_datatype_prefix(datatype=0x70, size=len(str_bytes)) + str_bytes
+    
+    def _pack_str_utf16le(self, value):
+        str_bytes = value.encode(encoding='utf-16le')
+        return self._calc_datatype_prefix(datatype=0x60, size=len(str_bytes)) + str_bytes
+
+    def _pack_data(self, value):
+        return self._calc_datatype_prefix(datatype=0x40, size=len(value)) + value
+    
+    def _pack_addr(self, value):
+        addr_length = math.ceil(math.log(value + 1, 2) / 8)
+        addr_bytes = value.to_bytes(length=addr_length, byteorder='little')
+        return self._calc_datatype_prefix(datatype=0x80, size=addr_length) + addr_bytes
+    
+    def _pack(self, value, position, with_type_info):
+        if isinstance(value, (str)):
+            previous_instance_position = self.known_objects.get(value, None)
+            if previous_instance_position is not None:
+                return self._pack_addr(previous_instance_position)
+            else:
+                self.known_objects[value] = position + 1
+
+        if with_type_info:
+            return self._pack_with_type_info(value=value, position=position)
+        else:
+            return self._pack_without_type_info(value=value, position=position)
+        
+    def _pack_without_type_info(self, value, position):
+        if isinstance(value, dict):
+            return self._pack_dict(value=value, position=position, with_type_info=False)
+
+        elif isinstance(value, (list, tuple)):
+            return self._pack_array(value=value, position=position, with_type_info=False)
+        
+        elif isinstance(value, bool):
+            return self._pack_bool(value=value)
+
+        elif isinstance(value, int):
+            # TODO signed or unsigned depending on parsing/specification TBD
+            return self._pack_int(value=value)
+
+        elif isinstance(value, float):
+            # TODO float or double depending on parsing/specification TBD
+            return self._pack_float(value=value)
+            # return self._pack_double(value=value)
+
+        elif isinstance(value, str):
+            # TODO utf-8 or utf-16le depending on parsing/specification TBD
+            return self._pack_str_utf8(value=value)
+            # return self._pack_str_utf16le(value=value)
+        
+        elif isinstance(value, (bytes, bytearray)):
+            return self._pack_data(value=value)
+
+        elif value is None:
+            return self._pack_null()
+
+        else:
+            raise TypeError("unsupported value type: %s" % (type(value)))
+        
+            
+    def _pack_with_type_info(self, value, position):
+        type_def = value.get('type')
+        contained_value = value.get('value')
+
+        types = type_def.split('.')
+        
+        if types[0] == 'int':
+            return self._pack_int(value=contained_value)
+        elif types[0] == 'float':
+            return self._pack_float(value=contained_value)
+        elif types[0] == 'double':
+            return self._pack_double(value=contained_value)
+        elif types[0] == 'data':
+            # TODO handle data
+            print('handle data')
+            if types[1] == 'hexstring':
+                return self._pack_data(bytes.fromhex(contained_value))
+            else:
+                print('handle %s' % type_def)
+        elif types[0] == 'string_utf16le':
+            return self._pack_str_utf16le(value=contained_value)
+        elif types[0] == 'string_utf8':
+            return self._pack_str_utf8(value=contained_value)
+        elif types[0] == 'array':
+            return self._pack_array(value=contained_value, position=position, with_type_info=True)
+        elif types[0] == 'bool':
+            return self._pack_bool(value=contained_value)
+        elif types[0] == 'dict':
+            return self._pack_dict(value=contained_value, position=position, with_type_info=True)
+        elif types[0] == 'null':
+            return self._pack_null()
+        elif types[0] == 'uint':
+            return self._pack_uint(value=contained_value)
+        else:
+            raise TypeError('unsupported value type %s' % types[0])
+    
+    def _calc_datatype_prefix(self, datatype, size):
+        if size < 0xF:
+            return (datatype | size).to_bytes(length=1, byteorder='little')
+        else:
+            return (datatype | 0x0F).to_bytes(length=1, byteorder='little') + self._pack(size)
