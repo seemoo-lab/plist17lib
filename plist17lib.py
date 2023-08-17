@@ -198,6 +198,7 @@ class _BinaryPlist17Parser:
 class _BinaryPlist17Writer:
     def __init__(self, fp):#, sort_keys, skipkeys):
         self._fp = fp
+        self.known_objects = {}
         # self._sort_keys = sort_keys
         # self._skipkeys = skipkeys
     
@@ -271,8 +272,20 @@ class _BinaryPlist17Writer:
 
     def _pack_data(self, value):
         return self._calc_datatype_prefix(datatype=0x40, size=len(value)) + value
-
+    
+    def _pack_addr(self, value):
+        addr_length = math.ceil(math.log(value + 1, 2) / 8)
+        addr_bytes = value.to_bytes(length=addr_length, byteorder='little')
+        return self._calc_datatype_prefix(datatype=0x80, size=addr_length) + addr_bytes
+    
     def _pack(self, value, position):
+        if isinstance(value, (str)):
+            previous_instance_position = self.known_objects.get(value, None)
+            if previous_instance_position is not None:
+                return self._pack_addr(previous_instance_position)
+            else:
+                self.known_objects[value] = position + 1
+        
         if isinstance(value, dict):
             return self._pack_dict(value=value, position=position)
 
