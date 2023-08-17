@@ -42,28 +42,28 @@ class _BinaryPlist17Parser:
                 ValueError):
             raise InvalidFileException()
 
-    def _get_size(self, tokenL):
-        """ return the size of the next object."""
-        if tokenL == 0xF:
-            m = self._fp.read(1)[0] & 0x3
-            s = 1 << m
-            f = '>' + _BINARY_FORMAT[s]
-            return struct.unpack(f, self._fp.read(s))[0]
+    # def _get_size(self, tokenL):
+    #     """ return the size of the next object."""
+    #     if tokenL == 0xF:
+    #         m = self._fp.read(1)[0] & 0x3
+    #         s = 1 << m
+    #         f = '>' + _BINARY_FORMAT[s]
+    #         return struct.unpack(f, self._fp.read(s))[0]
 
-        return tokenL
+    #     return tokenL
 
-    def _read_ints(self, n, size):
-        data = self._fp.read(size * n)
-        if size in _BINARY_FORMAT:
-            return struct.unpack(f'>{n}{_BINARY_FORMAT[size]}', data)
-        else:
-            if not size or len(data) != size * n:
-                raise InvalidFileException()
-            return tuple(int.from_bytes(data[i: i + size], 'big')
-                         for i in range(0, size * n, size))
+    # def _read_ints(self, n, size):
+    #     data = self._fp.read(size * n)
+    #     if size in _BINARY_FORMAT:
+    #         return struct.unpack(f'>{n}{_BINARY_FORMAT[size]}', data)
+    #     else:
+    #         if not size or len(data) != size * n:
+    #             raise InvalidFileException()
+    #         return tuple(int.from_bytes(data[i: i + size], 'big')
+    #                      for i in range(0, size * n, size))
 
-    def _read_refs(self, n):
-        return self._read_ints(n, self._ref_size)
+    # def _read_refs(self, n):
+    #     return self._read_ints(n, self._ref_size)
 
     def _read_object_at(self, addr, with_type_info=False):
         """
