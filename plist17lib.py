@@ -222,7 +222,6 @@ class _BinaryPlist17Writer:
         return header_bytes + element_bytes
 
     def _pack_array(self, value, position):
-        print('process array')
         element_bytes = bytes()
         curr_position = position + 8
         for element in value:
@@ -245,7 +244,6 @@ class _BinaryPlist17Writer:
             buff_size = math.ceil((math.log(value + 1, 2) + 1) / 8)
 
         value_bytes = self._calc_datatype_prefix(datatype=0x10, size=buff_size) + value.to_bytes(buff_size, byteorder='little', signed=True)
-        print(value_bytes)
         return value_bytes
 
     def _pack_float(self, value):
