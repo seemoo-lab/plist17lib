@@ -208,42 +208,98 @@ class _BinaryPlist17Writer:
 
         self._fp.write(plist_bytes + value_bytes)
         return self._fp
+    
+    def _pack_dict(self, value, position):
+        # TODO process dict
+        print('process dict')
+        endposition = position +  size
+        header_bytes = b'\xD0' + endposition.to_bytes(length=8, byteorder='little')
+
+    def _pack_array(self, value, position):
+        print('process array')
+        element_bytes = bytes()
+        curr_position = position + 8
+        for element in value:
+            element_bytes = element_bytes + self._pack(element, position=curr_position+len(element_bytes))
+        
+        size = len(element_bytes)
+        endposition = curr_position +  size
+        header_bytes = b'\xA0' + endposition.to_bytes(length=8, byteorder='little')
+
+        return header_bytes + element_bytes
+    
+    def _pack_int(self, value):
+
+        if value < 0:
+            if value < -2**63:
+                raise ValueError("value: %i out of range of int64" % value)
+            else:
+                buff_size = 8
+        else:
+            buff_size = math.ceil((math.log(value + 1, 2) + 1) / 8)
+
+        value_bytes = self._calc_datatype_prefix(datatype=0x10, size=buff_size) + value.to_bytes(buff_size, byteorder='little', signed=True)
+        print(value_bytes)
+        return value_bytes
+
+    def _pack_float(self, value):
+        return b'\x22' + struct.pack('<f', value)
+    
+    def _pack_double(self, value):
+        return b'\x23' + struct.pack('<d', value)
+    
+    def _pack_bool(self, value):
+        if value:
+            return b'\xB0'
+        else:
+            return b'\xC0'
+        
+    def _pack_null(self):
+        return b'\xE0'
+
+    def _pack_str_utf8(self, value):
+        str_bytes = value.encode(encoding='utf-8')
+        return self._calc_datatype_prefix(datatype=0x70, size=len(str_bytes)) + str_bytes
+    
+    def _pack_str_utf16le(self, value):
+        str_bytes = value.encode(encoding='utf-16le')
+        return self._calc_datatype_prefix(datatype=0x60, size=len(str_bytes)) + str_bytes
+
+    def _pack_data(self, value):
+        return self._calc_datatype_prefix(datatype=0x40, size=len(value)) + value
 
     def _pack(self, value, position):
-        value_bytes : bytes = None
         if isinstance(value, dict):
-            # TODO process dict
-            print('process dict')
-            endposition = position +  size
-            header_bytes = b'\xD0' + endposition.to_bytes(length=8, byteorder='little')
+            return self._pack_dict(value=value, position=position)
 
         elif isinstance(value, (list, tuple)):
-            # TODO process array
-            print('process array')
-            element_bytes = bytes()
-            curr_position = position + 8
-            for element in value:
-                element_bytes = element_bytes + self._pack(element, position=curr_position+len(element_bytes))
-            
-            size = len(element_bytes) # TODO get size of packed array contents
-            endposition = curr_position +  size
-            header_bytes = b'\xA0' + endposition.to_bytes(length=8, byteorder='little')
-
-            return header_bytes + element_bytes
+            return self._pack_array(value=value, position=position)
         
+        elif isinstance(value, bool):
+            return self._pack_bool(value=value)
+
         elif isinstance(value, int):
             # TODO signed or unsigned depending on parsing/specification TBD
-            buff_size = math.ceil(math.log(value + 1, 2) / 8)
-            value_bytes = self._calc_datatype_prefix(datatype=0x10, size=buff_size) + value.to_bytes(buff_size, byteorder='little')
-            print(value_bytes)
+            return self._pack_int(value=value)
+
         elif isinstance(value, float):
             # TODO float or double depending on parsing/specification TBD
-            value_bytes = b'\x22' + struct.pack('<f', value)
-            # value_bytes = b'\x23' + struct.pack('<d', value)
-        elif isinstance(value, str):
-            print('process string')
+            return self._pack_float(value=value)
+            # return self._pack_double(value=value)
 
-        return value_bytes
+        elif isinstance(value, str):
+            # TODO utf-8 or utf-16le depending on parsing/specification TBD
+            return self._pack_str_utf8(value=value)
+            # return self._pack_str_utf16le(value=value)
+        
+        elif isinstance(value, (bytes, bytearray)):
+            return self._pack_data(value=value)
+
+        elif value is None:
+            return self._pack_null()
+
+        else:
+            raise TypeError("unsupported value type: %s" % (type(value)))
     
     def _calc_datatype_prefix(self, datatype, size):
         if size < 0xF:
