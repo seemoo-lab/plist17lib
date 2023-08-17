@@ -211,9 +211,16 @@ class _BinaryPlist17Writer:
     
     def _pack_dict(self, value, position):
         # TODO process dict
-        print('process dict')
-        endposition = position +  size
+        element_bytes = bytes()
+        curr_position = position + 8
+        for key, val in value.items():
+            element_bytes = element_bytes + self._pack(key, position=curr_position+len(element_bytes))
+            element_bytes = element_bytes + self._pack(val, position=curr_position+len(element_bytes))
+        
+        size = len(element_bytes)
+        endposition = curr_position +  size
         header_bytes = b'\xD0' + endposition.to_bytes(length=8, byteorder='little')
+        return header_bytes + element_bytes
 
     def _pack_array(self, value, position):
         print('process array')
