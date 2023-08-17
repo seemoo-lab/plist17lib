@@ -384,7 +384,7 @@ class _BinaryPlist17Writer:
         else:
             raise TypeError('unsupported value type %s' % types[0])
     
-    def _calc_datatype_prefix(self, datatype, size, position):
+    def _calc_datatype_prefix(self, datatype, size):
         if size < 0xF:
             return (datatype | size).to_bytes(length=1, byteorder='little')
         else:
