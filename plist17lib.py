@@ -231,24 +231,27 @@ class _BinaryPlist17Writer:
     
     def _pack_dict(self, value, position, with_type_info):
         element_bytes = bytes()
-        curr_position = position + 8
+        curr_position = position + 9
         for key, val in value.items():
             element_bytes = element_bytes + self._pack(key, position=curr_position+len(element_bytes), with_type_info=False)
             element_bytes = element_bytes + self._pack(val, position=curr_position+len(element_bytes), with_type_info=with_type_info)
-        
+    
+        previous_instance_position = self._get_previous_instance_position(json.dumps(value), position=position, type='dict')
+        if previous_instance_position is not None :
+            return self._pack_addr(previous_instance_position)
         size = len(element_bytes)
-        endposition = curr_position +  size
+        endposition = curr_position +  size - 1
         header_bytes = b'\xD0' + endposition.to_bytes(length=8, byteorder='little')
         return header_bytes + element_bytes
 
     def _pack_array(self, value, position, with_type_info):
         element_bytes = bytes()
-        curr_position = position + 8
+        curr_position = position + 9
         for element in value:
             element_bytes = element_bytes + self._pack(element, position=curr_position+len(element_bytes), with_type_info=with_type_info)
         
         size = len(element_bytes)
-        endposition = curr_position +  size
+        endposition = curr_position +  size - 1
         header_bytes = b'\xA0' + endposition.to_bytes(length=8, byteorder='little')
 
         return header_bytes + element_bytes
