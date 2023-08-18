@@ -296,7 +296,7 @@ class _BinaryPlist17Writer:
     
     def _pack_str_utf16le(self, value):
         str_bytes = value.encode(encoding='utf-16le')
-        return self._calc_datatype_prefix(datatype=0x60, size=len(str_bytes)) + str_bytes
+        return self._calc_datatype_prefix(datatype=0x60, size=len(str_bytes)//2) + str_bytes
 
     def _pack_data(self, value):
         return self._calc_datatype_prefix(datatype=0x40, size=len(value)) + value
