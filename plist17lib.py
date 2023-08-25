@@ -6,6 +6,7 @@ from plistlib import load as plistlibLoad
 import struct
 from io import BytesIO
 import math
+import json
 
 __all__ = [
     "_BinaryPlist17Parser",
@@ -231,24 +232,27 @@ class _BinaryPlist17Writer:
     
     def _pack_dict(self, value, position, with_type_info):
         element_bytes = bytes()
-        curr_position = position + 8
+        curr_position = position + 9
         for key, val in value.items():
             element_bytes = element_bytes + self._pack(key, position=curr_position+len(element_bytes), with_type_info=False)
             element_bytes = element_bytes + self._pack(val, position=curr_position+len(element_bytes), with_type_info=with_type_info)
-        
+    
+        previous_instance_position = self._get_previous_instance_position(json.dumps(value), position=position, type='dict')
+        if previous_instance_position is not None :
+            return self._pack_addr(previous_instance_position)
         size = len(element_bytes)
-        endposition = curr_position +  size
+        endposition = curr_position +  size - 1
         header_bytes = b'\xD0' + endposition.to_bytes(length=8, byteorder='little')
         return header_bytes + element_bytes
 
     def _pack_array(self, value, position, with_type_info):
         element_bytes = bytes()
-        curr_position = position + 8
+        curr_position = position + 9
         for element in value:
             element_bytes = element_bytes + self._pack(element, position=curr_position+len(element_bytes), with_type_info=with_type_info)
         
         size = len(element_bytes)
-        endposition = curr_position +  size
+        endposition = curr_position +  size - 1
         header_bytes = b'\xA0' + endposition.to_bytes(length=8, byteorder='little')
 
         return header_bytes + element_bytes
@@ -293,7 +297,7 @@ class _BinaryPlist17Writer:
     
     def _pack_str_utf16le(self, value):
         str_bytes = value.encode(encoding='utf-16le')
-        return self._calc_datatype_prefix(datatype=0x60, size=len(str_bytes)) + str_bytes
+        return self._calc_datatype_prefix(datatype=0x60, size=len(str_bytes)//2) + str_bytes
 
     def _pack_data(self, value):
         return self._calc_datatype_prefix(datatype=0x40, size=len(value)) + value
@@ -303,14 +307,21 @@ class _BinaryPlist17Writer:
         addr_bytes = value.to_bytes(length=addr_length, byteorder='little')
         return self._calc_datatype_prefix(datatype=0x80, size=addr_length) + addr_bytes
     
-    def _pack(self, value, position, with_type_info):
-        if isinstance(value, (str)):
-            previous_instance_position = self.known_objects.get(value, None)
+    def _get_previous_instance_position(self, value, position, type):
+        if isinstance(value, (str, bytes)):
+            objects_with_type = self.known_objects.get(type)
+            if objects_with_type is None:
+                objects_with_type = {}
+                self.known_objects[type] = objects_with_type
+            
+            previous_instance_position = objects_with_type.get(value, None)
             if previous_instance_position is not None:
-                return self._pack_addr(previous_instance_position)
+                return previous_instance_position
             else:
-                self.known_objects[value] = position + 1
+                self.known_objects[type][value] = position
+                return None
 
+    def _pack(self, value, position, with_type_info):
         if with_type_info:
             return self._pack_with_type_info(value=value, position=position)
         else:
@@ -335,6 +346,9 @@ class _BinaryPlist17Writer:
             # return self._pack_double(value=value)
 
         elif isinstance(value, str):
+            previous_instance_position = self._get_previous_instance_position(value, position=position, type='string')
+            if previous_instance_position is not None :
+                return self._pack_addr(previous_instance_position)
             # TODO utf-8 or utf-16le depending on parsing/specification TBD
             return self._pack_str_utf8(value=value)
         
@@ -368,8 +382,14 @@ class _BinaryPlist17Writer:
             else:
                 print('handle %s' % type_def)
         elif types[0] == 'string_utf16le':
+            previous_instance_position = self._get_previous_instance_position(contained_value, position=position, type=types[0])
+            if previous_instance_position is not None :
+                return self._pack_addr(previous_instance_position)
             return self._pack_str_utf16le(value=contained_value)
         elif types[0] == 'string_utf8':
+            previous_instance_position = self._get_previous_instance_position(contained_value, position=position, type=types[0])
+            if previous_instance_position is not None :
+                return self._pack_addr(previous_instance_position)
             return self._pack_str_utf8(value=contained_value)
         elif types[0] == 'array':
             return self._pack_array(value=contained_value, position=position, with_type_info=True)
