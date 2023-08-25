@@ -8,5 +8,5 @@ setup(name='plist17lib',
       author='hwingb, dserd',
       author_email='',
       url='https://github.com/hwingb/plist17lib',
-      packages=['plist17lib'],
+      py_modules=['plist17lib'],
      )
