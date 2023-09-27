@@ -1,7 +1,7 @@
 # Copyright 2023, Hendrik Wingbermuehle, Denys Serdyukov
 # Based on https://github.com/python/cpython/blob/3.11/Lib/plistlib.py
 
-from plistlib import InvalidFileException, _undefined, PlistFormat
+from plistlib import InvalidFileException, PlistFormat
 from plistlib import load as plistlibLoad
 import struct
 from io import BytesIO
@@ -184,6 +184,8 @@ class _BinaryPlist17Parser:
             
             if self._fp.tell() != (endAddress + 1):
                 raise InvalidFileException() # TODO: Descriptive Exception
+            
+            result_value = self._transformDictionary(result_value, with_type_info=with_type_info)
         
         elif token == 0xE0:
             result_type = 'null'
@@ -217,6 +219,26 @@ class _BinaryPlist17Parser:
         else:
             size = tokenL
         return size
+    
+    def _transformDictionary(self, dictionary, with_type_info=False):
+        transformed_dict = {}
+        if with_type_info:
+             return dictionary
+        else:
+            class_value = dictionary["$class"]
+            if class_value == "NSDictionary" or class_value == "NSMutableDictionary":
+                transformed_dict["$class"] = class_value
+                keys = dictionary["NS.keys"]
+                objects = dictionary["NS.objects"]
+                for index in range(len(keys)):
+                    transformed_dict[keys[index]] = objects[index]
+                
+                return transformed_dict
+            else:
+                return dictionary
+    
+        
+
 class _BinaryPlist17Writer:
     def __init__(self, fp):
         self._fp = fp
@@ -329,7 +351,8 @@ class _BinaryPlist17Writer:
         
     def _pack_without_type_info(self, value, position):
         if isinstance(value, dict):
-            return self._pack_dict(value=value, position=position, with_type_info=False)
+            transformed_value = self._transformDictionary(value, with_type_info=False)
+            return self._pack_dict(value=transformed_value, position=position, with_type_info=False)
 
         elif isinstance(value, (list, tuple)):
             return self._pack_array(value=value, position=position, with_type_info=False)
@@ -409,3 +432,23 @@ class _BinaryPlist17Writer:
             return (datatype | size).to_bytes(length=1, byteorder='little')
         else:
             return (datatype | 0x0F).to_bytes(length=1, byteorder='little') + self._pack(size, position=0, with_type_info=False)
+        
+    def _transformDictionary(self, dictionary: dict, with_type_info=False):
+        transformed_dict = {}
+        if with_type_info:
+             return dictionary
+        else:
+            class_value = dictionary["$class"]
+            if class_value == "NSDictionary" or class_value == "NSMutableDictionary":
+                transformed_dict["$class"] = class_value
+                keys = []
+                objects = []
+                for key in dictionary.keys():
+                    if key != "$class":
+                        keys.append(key)
+                        objects.append(dictionary[key])
+                transformed_dict["NS.keys"] = keys
+                transformed_dict["NS.objects"] = objects
+                return transformed_dict
+            else:
+                return dictionary
