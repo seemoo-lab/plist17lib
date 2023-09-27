@@ -140,7 +140,7 @@ class _BinaryPlist17Parser:
             data = self._fp.read(size)
             if len(data) != size:
                 raise InvalidFileException()
-            result_type = 'string_utf8'
+            result_type = 'string_ascii'
             result_value = data.decode('ascii').rstrip('\x00')
 
         elif tokenH == 0x80:  # Referenced Object
@@ -313,7 +313,7 @@ class _BinaryPlist17Writer:
     def _pack_null(self):
         return b'\xE0'
 
-    def _pack_str_utf8(self, value):
+    def _pack_str_ascii(self, value):
         str_bytes = value.encode(encoding='utf-8') + b'\x00'
         return self._calc_datatype_prefix(datatype=0x70, size=len(str_bytes)) + str_bytes
     
@@ -372,8 +372,8 @@ class _BinaryPlist17Writer:
             previous_instance_position = self._get_previous_instance_position(value, position=position, type='string')
             if previous_instance_position is not None :
                 return self._pack_addr(previous_instance_position)
-            # TODO utf-8 or utf-16le depending on parsing/specification TBD
-            return self._pack_str_utf8(value=value)
+            # TODO ascii or utf-16le depending on parsing/specification TBD
+            return self._pack_str_ascii(value=value)
         
         elif isinstance(value, (bytes, bytearray)):
             return self._pack_data(value=value)
@@ -409,11 +409,11 @@ class _BinaryPlist17Writer:
             if previous_instance_position is not None :
                 return self._pack_addr(previous_instance_position)
             return self._pack_str_utf16le(value=contained_value)
-        elif types[0] == 'string_utf8':
+        elif types[0] == 'string_ascii':
             previous_instance_position = self._get_previous_instance_position(contained_value, position=position, type=types[0])
             if previous_instance_position is not None :
                 return self._pack_addr(previous_instance_position)
-            return self._pack_str_utf8(value=contained_value)
+            return self._pack_str_ascii(value=contained_value)
         elif types[0] == 'array':
             return self._pack_array(value=contained_value, position=position, with_type_info=True)
         elif types[0] == 'bool':
