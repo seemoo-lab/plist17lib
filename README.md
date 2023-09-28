@@ -24,7 +24,7 @@ D0 - "dict",
 E0 - "null",
 FX - "uint"
 ```
-Type `8X` (address reference) does not have a corresponding type in the json format, since the objects are dereferenced by the parser.
+Type `8X` (address reference) does not have a corresponding type in the JSON format, since the objects are dereferenced by the parser.
 
 The nibble `X` represents the length of the data if it has a value below 0xF. If it is 0xF, an integer containing the length follows (e.g. `11 20` for the length 0x20).
 The length is specified in bytes, except for UTF16LE strings, where the length is specified as number of characters (aka half of the byte length). \
