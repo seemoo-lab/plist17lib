@@ -2,6 +2,7 @@ from plist17lib import _BinaryPlist17Writer
 import sys, getopt
 import os
 import json
+from . import prog_name
 
 from io import BytesIO
 
@@ -19,12 +20,14 @@ def printHelp(isError=False):
     else:
         out = sys.stdout
     print('Usage:', file=out)
-    print('  ' + os.path.basename(__file__) + ' [-t] -i <input> -o <output>', file=out)
-    print('  ' + os.path.basename(__file__) + ' [--typed] --input <input> --output <output>', file=out)
+    print('  %s [-t] -i <input> -o <output>' % prog_name, file=out)
+    print('  %s [--typed] --input <input> --output <output>' % prog_name, file=out)
     print('Input and output can either both be file paths, or both be directories.', file=out)
     print('The output contains additional type information if the option --typed or -t is used.', file=out)
 
-def main(argv):
+def main(argv = None):
+    if argv == None:
+        argv = sys.argv[1:]
     inputpath = ''
     outputpath = ''
     typed = False

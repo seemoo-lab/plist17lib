@@ -3,7 +3,7 @@ import plistlib
 import json
 import sys, getopt
 import os
-
+from . import prog_name
 from io import BytesIO
 
 def parse_file(plist_file_path, json_out_path, with_type_info):
@@ -29,12 +29,14 @@ def printHelp(isError=False):
     else:
         out = sys.stdout
     print('Usage:', file=out)
-    print('  test.py [-t] -i <input> [-o <output>]', file=out)
-    print('  test.py [--typed] --input <input> [--output <output>]', file=out)
+    print('  %s [-t] -i <input> [-o <output>]' % prog_name, file=out)
+    print('  %s [--typed] --input <input> [--output <output>]' % prog_name, file=out)
     print('Input and output can either both be file paths, or both be directories.', file=out)
     print('The output contains additional type information if the option --typed or -t is used.', file=out)
 
-def main(argv):
+def main(argv = None):
+    if argv == None:
+        argv = sys.argv[1:]
     inputpath = ''
     outputpath = ''
     typed = False

@@ -8,6 +8,8 @@ from io import BytesIO
 import math
 import json
 
+__version__="0.0.2"
+
 __all__ = [
     "_BinaryPlist17Parser",
     "_BinaryPlist17Writer"
