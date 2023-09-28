@@ -8,14 +8,14 @@ We also provide command-line tools to convert between such binary and JSON files
 ### List of possible types and their binary equivalent
 The type information in the typed JSON representation corresponds to the type information in the binary format as follows:
 
-(hexadecimal byte representaion in bplist binary - corresponding identifiers in json):
+(hexadecimal byte representaion in bplist binary - corresponding identifiers in JSON):
 ```
 1X - "int",
 22 - "float" (2^2 = 4 bytes), 
 23 - "double" (2^3 = 8 bytes),
 4X - "data.hexstring" (value was parsed as hexstring),
-   - "data.bplist00" if data contains a bplist00 which was parsed as json,
-   - "data.bplist17" if data contains a bplist17 which was parsed as json,
+   - "data.bplist00" if data contains a bplist00 which was parsed as JSON,
+   - "data.bplist17" if data contains a bplist17 which was parsed as JSON,
 6X - "string_utf16le",
 7X - "string_ascii",
 A0 - "array",
@@ -30,4 +30,4 @@ The nibble `X` represents the length of the data if it has a value below 0xF. If
 The length is specified in bytes, except for UTF-16LE strings, where the length is specified as number of characters (aka half of the byte length). \
 For arrays and dictionaries, the byte `A0` or `D0` is followed by the end address of the last byte of the array/dictionary (8 bytes, little-endian).
 
-The unknown types `0X`, `5X` and `9X` (which may or may not exist) are not implemented by the parser, hence they have no no corresponding types in the json output.
+The unknown types `0X`, `5X` and `9X` (which may or may not exist) are not implemented by the parser, hence they have no no corresponding types in the JSON output.
